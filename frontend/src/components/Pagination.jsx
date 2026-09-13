@@ -1,150 +1,112 @@
-const getPageItems = (
-  page,
-  totalPages
-) => {
-
-  const items = [];
-
-  const add = (value) =>
-    items.push(value);
-
-
-  if (totalPages <= 7) {
-
-    for (
-      let i = 1;
-      i <= totalPages;
-      i += 1
-    ) {
-
-      add(i);
-
-    }
-
-    return items;
-  }
-
-
-  add(1);
-
-
-  if (page > 4) {
-
-    add("left-ellipsis");
-
-  }
-
-
-  const start =
-    Math.max(2, page - 1);
-
-  const end =
-    Math.min(
-      totalPages - 1,
-      page + 1
-    );
-
-
-  for (
-    let i = start;
-    i <= end;
-    i += 1
-  ) {
-
-    add(i);
-
-  }
-
-
-  if (page < totalPages - 3) {
-
-    add("right-ellipsis");
-
-  }
-
-
-  add(totalPages);
-
-
-  return items;
-};
-
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const Pagination = ({
   page,
   totalPages,
-  onChange,
+  onPageChange,
 }) => {
-
   if (totalPages <= 1) {
-    return null;
+    return null
   }
 
+  const goToPage = (nextPage) => {
+    if (nextPage < 1 || nextPage > totalPages) {
+      return
+    }
+
+    onPageChange(nextPage)
+  }
+
+  const getPages = () => {
+    const pages = []
+
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+
+      return pages
+    }
+
+    pages.push(1)
+
+    if (page > 3) {
+      pages.push('...')
+    }
+
+    const start = Math.max(2, page - 1)
+    const end = Math.min(totalPages - 1, page + 1)
+
+    for (let i = start; i <= end; i++) {
+      if (!pages.includes(i)) {
+        pages.push(i)
+      }
+    }
+
+    if (page < totalPages - 2) {
+      pages.push('...')
+    }
+
+    if (!pages.includes(totalPages)) {
+      pages.push(totalPages)
+    }
+
+    return pages
+  }
 
   return (
-
-    <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-
+    <div className="flex items-center justify-center gap-2">
       <button
+        type="button"
+        onClick={() => goToPage(page - 1)}
         disabled={page === 1}
-        onClick={() =>
-          onChange(page - 1)
-        }
-        className="rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-400 disabled:cursor-not-allowed disabled:opacity-30"
+        className="flex h-10 items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm text-slate-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
       >
-        Previous
+        <ChevronLeft className="h-4 w-4" />
+        <span className="hidden sm:inline">
+          Previous
+        </span>
       </button>
 
-
-      {getPageItems(
-        page,
-        totalPages
-      ).map((item) =>
-
-        typeof item === "string" ? (
-
-          <span
-            key={item}
-            className="px-1 text-zinc-600"
-          >
-            …
-          </span>
-
-        ) : (
-
-          <button
-            key={item}
-            onClick={() =>
-              onChange(item)
-            }
-            className={`grid h-9 w-9 place-items-center rounded-lg text-sm ${
-              page === item
-                ? "bg-white text-zinc-950"
-                : "border border-white/10 text-zinc-400 hover:text-white"
-            }`}
-          >
-            {item}
-          </button>
-
-        )
-      )}
-
+      <div className="flex items-center gap-1">
+        {getPages().map((item, index) =>
+          item === '...' ? (
+            <span
+              key={`ellipsis-${index}`}
+              className="flex h-10 w-8 items-center justify-center text-sm text-slate-500"
+            >
+              ...
+            </span>
+          ) : (
+            <button
+              key={item}
+              type="button"
+              onClick={() => goToPage(item)}
+              className={`flex h-10 min-w-10 items-center justify-center rounded-xl border px-3 text-sm font-medium transition ${
+                page === item
+                  ? 'border-white bg-white text-black'
+                  : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08] hover:text-white'
+              }`}
+            >
+              {item}
+            </button>
+          )
+        )}
+      </div>
 
       <button
-        disabled={
-          page === totalPages
-        }
-        onClick={() =>
-          onChange(page + 1)
-        }
-        className="rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-400 disabled:cursor-not-allowed disabled:opacity-30"
+        type="button"
+        onClick={() => goToPage(page + 1)}
+        disabled={page === totalPages}
+        className="flex h-10 items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm text-slate-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
       >
-        Next
+        <span className="hidden sm:inline">
+          Next
+        </span>
+        <ChevronRight className="h-4 w-4" />
       </button>
-
     </div>
-  );
-};
+  )
+}
 
-
-export default Pagination;
+export default Pagination

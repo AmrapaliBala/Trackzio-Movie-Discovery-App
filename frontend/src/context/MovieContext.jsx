@@ -1,6 +1,5 @@
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -29,28 +28,29 @@ export const MovieContextProvider = ({ children }) => {
   const [error, setError] = useState('')
   const [genresError, setGenresError] = useState('')
 
+  const [retryCount, setRetryCount] = useState(0)
+
   const requestIdRef = useRef(0)
   const controllerRef = useRef(null)
 
-  // --------------------------------------------------
-  // LOAD GENRES
-  // --------------------------------------------------
-
+  // Load movie categories once
   useEffect(() => {
     const controller = new AbortController()
 
     const loadGenres = async () => {
-      setGenresLoading(true)
-      setGenresError('')
-
       try {
+        setGenresLoading(true)
+        setGenresError('')
+
         const data = await getGenres(controller.signal)
 
-        setGenres(data.genres || [])
-      } catch (requestError) {
-        if (requestError.name !== 'AbortError') {
+        if (!controller.signal.aborted) {
+          setGenres(data.genres || [])
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') {
           setGenresError(
-            requestError.message || 'Unable to load categories.'
+            error.message || 'Unable to load categories.'
           )
         }
       } finally {
@@ -67,55 +67,46 @@ export const MovieContextProvider = ({ children }) => {
     }
   }, [])
 
-  // --------------------------------------------------
-  // FETCH MOVIES
-  // --------------------------------------------------
+  // Fetch movies whenever search, filter, sorting, page or retry changes
+  useEffect(() => {
+    const controller = new AbortController()
 
-  const fetchMovieResults = useCallback(
-    async ({
-      nextPage,
-      nextQuery,
-      nextGenre,
-      nextSortBy,
-    }) => {
-      const requestId = ++requestIdRef.current
+    // Cancel the previous request
+    controllerRef.current?.abort()
+    controllerRef.current = controller
 
-      // Cancel previous request
-      controllerRef.current?.abort()
+    const requestId = ++requestIdRef.current
 
-      const controller = new AbortController()
+    const delay = searchQuery.trim() ? 500 : 0
 
-      controllerRef.current = controller
-
-      setLoading(true)
-      setError('')
-
+    const timer = window.setTimeout(async () => {
       try {
+        setLoading(true)
+        setError('')
+
         const data = await getMovies(
           {
-            query: nextQuery,
-            genre: nextGenre,
-            sortBy: nextSortBy,
-            page: nextPage,
+            query: searchQuery,
+            genre,
+            sortBy,
+            page,
           },
           controller.signal
         )
 
-        // Ignore an older request if a newer request
-        // has already started.
-        if (requestId !== requestIdRef.current) {
+        // Ignore stale or cancelled requests
+        if (
+          controller.signal.aborted ||
+          requestId !== requestIdRef.current
+        ) {
           return
         }
 
         setMovies(data.movies || [])
-
         setTotalPages(data.totalPages || 0)
-
         setTotalResults(data.totalResults || 0)
-
-        setPage(data.page || nextPage)
-      } catch (requestError) {
-        if (requestError.name === 'AbortError') {
+      } catch (error) {
+        if (error.name === 'AbortError') {
           return
         }
 
@@ -124,83 +115,51 @@ export const MovieContextProvider = ({ children }) => {
         }
 
         setError(
-          requestError.message || 'Unable to load movies.'
+          error.message || 'Unable to load movies.'
         )
 
         setMovies([])
       } finally {
-        if (requestId === requestIdRef.current) {
+        if (
+          !controller.signal.aborted &&
+          requestId === requestIdRef.current
+        ) {
           setLoading(false)
         }
       }
-    },
-    []
-  )
-
-  // --------------------------------------------------
-  // FETCH WHEN FILTERS / SEARCH / SORT / PAGE CHANGE
-  // --------------------------------------------------
-
-  useEffect(() => {
-    const delay = searchQuery.trim() ? 400 : 0
-
-    const timer = window.setTimeout(() => {
-      fetchMovieResults({
-        nextPage: page,
-        nextQuery: searchQuery,
-        nextGenre: genre,
-        nextSortBy: sortBy,
-      })
     }, delay)
 
     return () => {
-      window.clearTimeout(timer)
+      clearTimeout(timer)
+      controller.abort()
     }
   }, [
     searchQuery,
     genre,
     sortBy,
     page,
-    fetchMovieResults,
+    retryCount,
   ])
 
-  // --------------------------------------------------
-  // SEARCH
-  // --------------------------------------------------
-
+  // Search
   const setSearchQuery = (value) => {
     setSearchQueryState(value)
-
-    // Start from first page for a new search
     setPage(1)
   }
 
-  // --------------------------------------------------
-  // GENRE
-  // --------------------------------------------------
-
+  // Genre filter
   const setGenre = (value) => {
     setGenreState(value)
-
-    // Start from first page when genre changes
     setPage(1)
   }
 
-  // --------------------------------------------------
-  // SORT
-  // --------------------------------------------------
-
+  // Sorting
   const setSortBy = (value) => {
     setSortByState(value)
-
-    // Start from first page when sorting changes
     setPage(1)
   }
 
-  // --------------------------------------------------
-  // PAGINATION
-  // --------------------------------------------------
-
+  // Pagination
   const changePage = (nextPage) => {
     setPage(Math.max(1, nextPage))
 
@@ -210,17 +169,10 @@ export const MovieContextProvider = ({ children }) => {
     })
   }
 
-  // --------------------------------------------------
-  // RETRY
-  // --------------------------------------------------
-
+  // Retry current request
   const retry = () => {
-    fetchMovieResults({
-      nextPage: page,
-      nextQuery: searchQuery,
-      nextGenre: genre,
-      nextSortBy: sortBy,
-    })
+    setError('')
+    setRetryCount((count) => count + 1)
   }
 
   return (
