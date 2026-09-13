@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import SearchBar from '../components/SearchBar'
@@ -35,49 +35,35 @@ const Search = () => {
     retry,
   } = useMovies()
 
-  // --------------------------------------------------
-  // INITIAL URL QUERY
-  // --------------------------------------------------
+  // Keep track of the last URL query that was applied.
+  const lastUrlQueryRef = useRef(null)
 
+  // Only update the search state when the URL query actually changes.
   useEffect(() => {
     const queryFromUrl = params.get('q') || ''
 
-    if (queryFromUrl && queryFromUrl !== searchQuery) {
-      setSearchQuery(queryFromUrl)
+    if (queryFromUrl === lastUrlQueryRef.current) {
+      return
     }
 
-    // URL should only initialize the search state.
-    // It should NOT continuously synchronize with it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    lastUrlQueryRef.current = queryFromUrl
 
-  // --------------------------------------------------
-  // SEARCH
-  // --------------------------------------------------
+    if (queryFromUrl !== searchQuery) {
+      setSearchQuery(queryFromUrl)
+    }
+  }, [params, searchQuery, setSearchQuery])
 
   const handleSearchChange = (value) => {
     setSearchQuery(value)
   }
 
-  // --------------------------------------------------
-  // GENRE
-  // --------------------------------------------------
-
   const handleGenreChange = (value) => {
     setGenre(value)
   }
 
-  // --------------------------------------------------
-  // SORT
-  // --------------------------------------------------
-
   const handleSortChange = (value) => {
     setSortBy(value)
   }
-
-  // --------------------------------------------------
-  // PAGINATION
-  // --------------------------------------------------
 
   const handlePageChange = (nextPage) => {
     changePage(nextPage)
@@ -92,10 +78,7 @@ const Search = () => {
     <main className="min-h-screen px-4 py-12 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
 
-        {/* ==================================================
-            HEADER
-        ================================================== */}
-
+        {/* Page Heading */}
         <section className="mb-10">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-fuchsia-400">
             Search
@@ -111,10 +94,7 @@ const Search = () => {
           </p>
         </section>
 
-        {/* ==================================================
-            SEARCH BAR
-        ================================================== */}
-
+        {/* Main Search Bar */}
         <section className="mb-8">
           <SearchBar
             value={searchQuery}
@@ -122,10 +102,7 @@ const Search = () => {
           />
         </section>
 
-        {/* ==================================================
-            FILTERS
-        ================================================== */}
-
+        {/* Categories + Sort */}
         <section className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
           <div className="min-w-0 flex-1 overflow-x-auto">
@@ -152,12 +129,10 @@ const Search = () => {
               onChange={handleSortChange}
             />
           </div>
+
         </section>
 
-        {/* ==================================================
-            RESULT COUNT
-        ================================================== */}
-
+        {/* Result Count */}
         {!loading && !error && (
           <div className="mb-6 text-sm text-slate-500">
             {totalResults}{' '}
@@ -165,10 +140,7 @@ const Search = () => {
           </div>
         )}
 
-        {/* ==================================================
-            ERROR
-        ================================================== */}
-
+        {/* Error */}
         {error && !loading && (
           <ErrorState
             message={error}
@@ -176,16 +148,10 @@ const Search = () => {
           />
         )}
 
-        {/* ==================================================
-            LOADING
-        ================================================== */}
-
+        {/* Loading */}
         {loading && <LoadingState />}
 
-        {/* ==================================================
-            EMPTY
-        ================================================== */}
-
+        {/* Empty */}
         {!loading && !error && movies.length === 0 && (
           <EmptyState
             title="No movies found"
@@ -197,16 +163,12 @@ const Search = () => {
           />
         )}
 
-        {/* ==================================================
-            MOVIES
-        ================================================== */}
-
+        {/* Movies */}
         {!loading && !error && movies.length > 0 && (
           <>
             <MovieGrid movies={movies} />
 
             {/* Pagination */}
-
             {totalPages > 1 && (
               <div className="mt-10">
                 <Pagination
